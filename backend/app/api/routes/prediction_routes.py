@@ -179,7 +179,7 @@ def list_predictions():
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 20, type=int)
         risk_level = request.args.get('risk_level')
-
+        
         predictions, total = PredictionService.list_predictions(
             page=page,
             page_size=page_size,

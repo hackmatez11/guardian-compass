@@ -32,15 +32,8 @@ def create_app(config_name='development'):
     # Setup logging
     setup_logging(app)
     
-    # Initialize CORS – must list allowed origins explicitly when supports_credentials=True
-    CORS(
-        app,
-        origins=config.CORS_ORIGINS,
-        supports_credentials=True,
-        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-        expose_headers=["Content-Type", "Authorization"],
-        methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    )
+    # Initialize CORS
+    CORS(app, origins=config.CORS_ORIGINS, supports_credentials=True)
     
     # Initialize rate limiter
     limiter = None

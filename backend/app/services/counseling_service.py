@@ -243,7 +243,7 @@ class CounselingService:
         """
         try:
             query = supabase_client.table(CounselingService.TABLE_NAME)\
-                .select("*, students(student_id, name, email)", count="exact")
+                .select("*, students(student_id, full_name, email)", count="exact")
             
             if filters:
                 for key, value in filters.items():
@@ -276,14 +276,16 @@ class CounselingService:
             List of sessions needing follow-up
         """
         try:
+            # Get sessions with follow_up_date set (not null)
             query = supabase_client.table(CounselingService.TABLE_NAME)\
-                .select("*, students(student_id, name, email)")\
-                .eq("requires_followup", True)
+                .select("*, students(student_id, full_name, email)")\
+                .filter("follow_up_date", "is.not", "null")
             
             if counselor_id:
                 query = query.eq("counselor_id", counselor_id)
             
-            response = query.order("followup_date", desc=False).execute()
+            # Order by follow_up_date in ascending order (earliest first)
+            response = query.order("follow_up_date", desc=False).execute()
             
             return response.data or []
             

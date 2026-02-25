@@ -131,6 +131,53 @@ CREATE TABLE public.academic_records (
 -- Enable RLS on academic_records
 ALTER TABLE public.academic_records ENABLE ROW LEVEL SECURITY;
 
+-- Create predictions table
+CREATE TABLE public.predictions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE NOT NULL,
+    risk_score DECIMAL(5,2) NOT NULL,
+    risk_level risk_level NOT NULL,
+    confidence_score DECIMAL(5,2),
+    predicted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    model_version TEXT,
+    features JSONB,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- Enable RLS on predictions
+ALTER TABLE public.predictions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for predictions
+CREATE POLICY "Students can view their own predictions"
+ON public.predictions FOR SELECT
+USING (student_id IN (SELECT id FROM public.students WHERE user_id = auth.uid()));
+
+CREATE POLICY "Admins can view all predictions"
+ON public.predictions FOR SELECT
+USING (public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "Counselors can view all predictions"
+ON public.predictions FOR SELECT
+USING (public.has_role(auth.uid(), 'counselor'));
+
+CREATE POLICY "Admins can insert predictions"
+ON public.predictions FOR INSERT
+WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "Counselors can insert predictions"
+ON public.predictions FOR INSERT
+WITH CHECK (public.has_role(auth.uid(), 'counselor'));
+
+CREATE POLICY "Admins can update predictions"
+ON public.predictions FOR UPDATE
+USING (public.has_role(auth.uid(), 'admin'));
+
+CREATE TRIGGER update_predictions_updated_at
+BEFORE UPDATE ON public.predictions
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
 -- RLS Policies for user_roles
 CREATE POLICY "Users can view their own roles"
 ON public.user_roles FOR SELECT
