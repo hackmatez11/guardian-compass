@@ -32,8 +32,15 @@ def create_app(config_name='development'):
     # Setup logging
     setup_logging(app)
     
-    # Initialize CORS
-    CORS(app, origins=config.CORS_ORIGINS, supports_credentials=True)
+    # Initialize CORS – must list allowed origins explicitly when supports_credentials=True
+    CORS(
+        app,
+        origins=config.CORS_ORIGINS,
+        supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+        expose_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    )
     
     # Initialize rate limiter
     limiter = None
@@ -165,9 +172,15 @@ def create_app(config_name='development'):
         logger.info(f"{request.method} {request.path} - {get_remote_address()}")
     
     @app.after_request
-    def log_response(response):
-        """Log outgoing responses"""
+    def add_cors_headers(response):
+        """Ensure CORS headers are present on every response (including preflight)."""
         from flask import request
+        origin = request.headers.get('Origin')
+        if origin and origin in config.CORS_ORIGINS:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
         logger.info(f"{request.method} {request.path} - Status: {response.status_code}")
         return response
     

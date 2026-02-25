@@ -215,7 +215,8 @@ def require_role(*allowed_roles):
             if not hasattr(g, 'user'):
                 raise AuthenticationError("User not authenticated")
             
-            user_role = g.user.user_metadata.get('role')
+            user_metadata = g.user.user_metadata or {}
+            user_role = user_metadata.get('role')
             
             if user_role not in allowed_roles:
                 raise AuthorizationError(
