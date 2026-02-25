@@ -13,6 +13,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const { user, userRole, isLoading } = useAuth();
   const location = useLocation();
 
+  // Still determining auth state — show spinner
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -24,15 +25,21 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     );
   }
 
+  // Not logged in — go to auth
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
-    // Redirect to appropriate dashboard based on role
-    const dashboardPath = userRole === 'admin' ? '/admin' : 
-                          userRole === 'counselor' ? '/counselor' : 
-                          '/student';
+  // Logged in but role not assigned — go back to auth page (shows "Role Not Assigned" message)
+  if (!userRole) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Logged in with a role, but wrong role for this route — redirect to their correct dashboard
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    const dashboardPath = userRole === 'admin' ? '/admin' :
+      userRole === 'counselor' ? '/counselor' :
+        '/student';
     return <Navigate to={dashboardPath} replace />;
   }
 

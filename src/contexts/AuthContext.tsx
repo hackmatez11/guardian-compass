@@ -22,17 +22,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /**
+   * Fetch role from user_roles table.
+   * If no row found, fall back to user_metadata.role (set during signup).
+   * If metadata has a role, auto-insert it into user_roles for future lookups.
+   */
+  const fetchUserRole = async (user: User) => {
+    try {
+      console.log('[AuthContext] Fetching role for user:', user.id);
+
+      // 1. Try the user_roles table first
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      console.log('[AuthContext] user_roles result:', { data, error });
+
+      if (error) {
+        console.error('[AuthContext] Error fetching user role:', error);
+      }
+
+      if (data?.role) {
+        console.log('[AuthContext] Role found in user_roles:', data.role);
+        setUserRole(data.role as AppRole);
+        return;
+      }
+
+      // 2. Fall back to user_metadata (stored during signup)
+      const metaRole = user.user_metadata?.role as AppRole | undefined;
+      console.log('[AuthContext] Role from user_metadata:', metaRole);
+
+      if (metaRole && ['admin', 'counselor', 'student'].includes(metaRole)) {
+        setUserRole(metaRole);
+
+        // Auto-insert into user_roles so future lookups work
+        const { error: insertError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: user.id, role: metaRole })
+          .select()
+          .single();
+
+        if (insertError) {
+          // Might be a duplicate if another tab already inserted — that's fine
+          console.warn('[AuthContext] Could not auto-insert user_role (may already exist):', insertError.message);
+        } else {
+          console.log('[AuthContext] Auto-inserted role into user_roles:', metaRole);
+        }
+        return;
+      }
+
+      // 3. No role found anywhere
+      console.warn('[AuthContext] No role found for user. user_id:', user.id);
+      setUserRole(null);
+    } catch (err) {
+      console.error('[AuthContext] Error in fetchUserRole:', err);
+      setUserRole(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (_event, session) => {
+        if (!mounted) return;
+
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // Defer role fetch with setTimeout to prevent deadlock
+
         if (session?.user) {
+          // Use setTimeout to avoid Supabase auth deadlock
           setTimeout(() => {
-            fetchUserRole(session.user.id);
+            if (mounted) {
+              fetchUserRole(session.user);
+            }
           }, 0);
         } else {
           setUserRole(null);
@@ -43,47 +111,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        fetchUserRole(session.user.id);
+        fetchUserRole(session.user);
       } else {
         setIsLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
-
-  const fetchUserRole = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching user role:', error);
-        setUserRole(null);
-      } else if (data) {
-        setUserRole(data.role as AppRole);
-      } else {
-        setUserRole(null);
-      }
-    } catch (err) {
-      console.error('Error in fetchUserRole:', err);
-      setUserRole(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const signUp = async (email: string, password: string, fullName: string, role: AppRole) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -166,10 +214,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    setIsLoading(true);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setUserRole(null);
+    setIsLoading(false);
   };
 
   return (

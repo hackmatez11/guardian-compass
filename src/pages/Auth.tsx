@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,18 +33,56 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupRole, setSignupRole] = useState<AppRole | ''>('');
-  
-  const { signIn, signUp, user, userRole } = useAuth();
+
+  const { signIn, signUp, user, userRole, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Redirect if already authenticated
-  if (user && userRole) {
-    const dashboardPath = userRole === 'admin' ? '/admin' : 
-                          userRole === 'counselor' ? '/counselor' : 
-                          '/student';
-    const from = location.state?.from?.pathname || dashboardPath;
-    return <Navigate to={from} replace />;
+  // Redirect to role-specific dashboard once role is confirmed
+  useEffect(() => {
+    if (!authLoading && user && userRole) {
+      const dashboardPath = userRole === 'admin' ? '/admin' :
+        userRole === 'counselor' ? '/counselor' : '/student';
+      const from = location.state?.from?.pathname || dashboardPath;
+      navigate(from, { replace: true });
+    }
+  }, [user, userRole, authLoading]);
+
+  // Show loading spinner while auth/role is being determined
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // User is logged in but no role assigned — show actionable error
+  if (!authLoading && user && !userRole) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center p-8 rounded-xl border border-border/50 bg-card shadow-lg">
+          <div className="p-3 bg-destructive/10 rounded-full">
+            <Shield className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-xl font-display font-semibold">Role Not Assigned</h2>
+          <p className="text-muted-foreground text-sm">
+            Your account exists but has no role assigned. Please contact your administrator to set up your account.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => { import('@/integrations/supabase/client').then(m => m.supabase.auth.signOut()); }}
+            className="mt-2"
+          >
+            Sign Out
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -64,12 +102,12 @@ export default function Auth() {
       }
 
       const { error } = await signIn(loginEmail, loginPassword);
-      
+
       if (error) {
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: error.message === 'Invalid login credentials' 
+          description: error.message === 'Invalid login credentials'
             ? 'Invalid email or password. Please try again.'
             : error.message,
         });
@@ -89,13 +127,13 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      const validation = signupSchema.safeParse({ 
-        fullName: signupName, 
-        email: signupEmail, 
+      const validation = signupSchema.safeParse({
+        fullName: signupName,
+        email: signupEmail,
         password: signupPassword,
         role: signupRole,
       });
-      
+
       if (!validation.success) {
         toast({
           variant: "destructive",
@@ -107,7 +145,7 @@ export default function Auth() {
       }
 
       const { error } = await signUp(signupEmail, signupPassword, signupName, signupRole as AppRole);
-      
+
       if (error) {
         let message = error.message;
         if (message.includes('already registered')) {
@@ -157,7 +195,7 @@ export default function Auth() {
           <p className="text-lg text-primary-foreground/80 max-w-md">
             Our AI-driven platform identifies at-risk students early, enabling targeted counseling and support to improve retention and academic outcomes.
           </p>
-          
+
           <div className="mt-12 grid grid-cols-2 gap-6">
             <div className="bg-primary-foreground/10 rounded-xl p-4">
               <div className="text-3xl font-bold text-accent">95%</div>
@@ -225,9 +263,9 @@ export default function Auth() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-primary hover:bg-primary/90" 
+                    <Button
+                      type="submit"
+                      className="w-full bg-primary hover:bg-primary/90"
                       disabled={isLoading}
                     >
                       {isLoading ? (
@@ -290,8 +328,8 @@ export default function Auth() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-role">Role</Label>
-                      <Select 
-                        value={signupRole} 
+                      <Select
+                        value={signupRole}
                         onValueChange={(value: AppRole) => setSignupRole(value)}
                         disabled={isLoading}
                       >
@@ -322,9 +360,9 @@ export default function Auth() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" 
+                    <Button
+                      type="submit"
+                      className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
                       disabled={isLoading || !signupRole}
                     >
                       {isLoading ? (
