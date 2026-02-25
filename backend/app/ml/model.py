@@ -265,11 +265,11 @@ class DropoutPredictionModel:
             for i, (pred, prob) in enumerate(zip(predictions, probabilities)):
                 # Determine risk level based on probability
                 if prob < 0.33:
-                    risk_level = "Low"
+                    risk_level = "low"
                 elif prob < 0.67:
-                    risk_level = "Medium"
+                    risk_level = "medium"
                 else:
-                    risk_level = "High"
+                    risk_level = "high"
                 
                 # Get top contributing factors for this student
                 student_features = X.iloc[i].to_dict()

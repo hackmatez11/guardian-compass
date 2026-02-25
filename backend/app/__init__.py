@@ -33,7 +33,16 @@ def create_app(config_name='development'):
     setup_logging(app)
     
     # Initialize CORS
-    CORS(app, origins=config.CORS_ORIGINS, supports_credentials=True)
+    # Handle CORS_ORIGINS as a list (already split by config)
+    cors_origins = config.CORS_ORIGINS if isinstance(config.CORS_ORIGINS, list) else [config.CORS_ORIGINS]
+    CORS(
+        app,
+        origins=cors_origins,
+        supports_credentials=True,
+        allow_headers=['Content-Type', 'Authorization'],
+        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        max_age=3600
+    )
     
     # Initialize rate limiter
     limiter = None

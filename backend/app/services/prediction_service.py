@@ -148,7 +148,7 @@ class PredictionService:
         try:
             # Build query
             query = supabase_client.table(PredictionService.TABLE_NAME)\
-                .select("*, students(student_id, name, email)", count="exact")
+                .select("*, students(student_id, full_name, email)", count="exact")
             
             # Apply risk level filter
             if risk_level:
@@ -190,8 +190,8 @@ class PredictionService:
         """
         try:
             response = supabase_client.table(PredictionService.TABLE_NAME)\
-                .select("*, students(student_id, name, email)")\
-                .eq("risk_level", "High")\
+                .select("*, students(student_id, full_name, email)")\
+                .eq("risk_level", "high")\
                 .order("risk_score", desc=True)\
                 .limit(limit)\
                 .execute()
@@ -214,17 +214,17 @@ class PredictionService:
             # Get counts by risk level
             low_count = supabase_client.table(PredictionService.TABLE_NAME)\
                 .select("*", count="exact")\
-                .eq("risk_level", "Low")\
+                .eq("risk_level", "low")\
                 .execute().count or 0
             
             medium_count = supabase_client.table(PredictionService.TABLE_NAME)\
                 .select("*", count="exact")\
-                .eq("risk_level", "Medium")\
+                .eq("risk_level", "medium")\
                 .execute().count or 0
             
             high_count = supabase_client.table(PredictionService.TABLE_NAME)\
                 .select("*", count="exact")\
-                .eq("risk_level", "High")\
+                .eq("risk_level", "high")\
                 .execute().count or 0
             
             total_count = low_count + medium_count + high_count

@@ -160,6 +160,10 @@ def list_predictions():
         page_size = request.args.get('page_size', 20, type=int)
         risk_level = request.args.get('risk_level')
         
+        # Normalize risk_level to lowercase
+        if risk_level:
+            risk_level = risk_level.lower()
+        
         predictions, total = PredictionService.list_predictions(
             page=page,
             page_size=page_size,
